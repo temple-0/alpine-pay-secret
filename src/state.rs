@@ -1,117 +1,38 @@
+use cosmwasm_std::{Addr, Timestamp, Deps, Storage, StdResult, Response};
+use cosmwasm_storage::{Singleton, singleton, ReadonlySingleton, singleton_read};
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use secret_toolkit_storage::Keymap;
+use serde::{Serialize, Deserialize};
 
-use cosmwasm_std::{
-    Deps,
-    Addr, 
-    Storage, 
-    StdResult,
-    Timestamp,
-};
-use secret_toolkit_storage::{
-  Item, 
-  Keymap,
-};
-
-use crate::traits::Donation;
 use crate::error::ContractError;
 
-pub struct AlpineContract<'a> {
-    pub donation_count: Item<'a, u64>,
-    pub donations_sender: Keymap<'a, Addr, DonationInfo>,
-    pub donations_recipient: Keymap<'a, Addr, DonationInfo>,
+const STATE_KEY: &[u8] = b"state";
+const DONATION_COUNT_KEY: &[u8] = b"donation_count";
+
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
+pub struct State<'a>{
+    pub donation_count: u64,
+    pub donations: Keymap<'a, u64, DonationInfo>,
     // Create a data structure which maps registered usernames to user objects
     pub usernames: Keymap<'a, String, AlpineUser>,
     // Create a data structure which maps registered addresses to user objects
     pub addresses: Keymap<'a, Addr, AlpineUser>
 }
 
-impl<'a> Donation for AlpineContract<'a> { }
-
-impl Default for AlpineContract<'static> {
-    fn default() -> Self {
-        Self::new(
-            "num_donations",
-            "donations_sender",
-            "donations_recipient",
-            "usernames",
-            addresses: "addresses"
-        )
-    }
+pub fn update_state(storage: &mut dyn Storage) -> Singleton<State> {
+    singleton(storage, STATE_KEY)
 }
 
-impl<'a> AlpineContract<'a> {
-    // On contract instantiation, create all of the relevant data structures
-    fn new(
-        donation_count_key: &'a str,
-        donations_sender: &'a str,
-        donations_recipient: &'a str,
-        usernames: &'a str,
-        addresses: &'a str
-    ) -> Self {
-        Self {
-            donation_count: Item::new(donation_count_key),
-            donations_sender: Keymap::new(donations_sender),
-            donations_recipient: Keymap::new(donations_recipient),
-            usernames: Keymap::new(usernames),
-            addresses: Keymap::new(addresses),
-        }
-    }
+pub fn read_state(storage: &dyn Storage) -> ReadonlySingleton<State> {
+    singleton_read(storage, STATE_KEY)
+}
 
-    // Return the number of donations
-    pub fn donation_count(&self, storage: &dyn Storage) -> StdResult<u64> {
-        Ok(self.donation_count.may_load(storage)?.unwrap_or_default())
-    }
-
-    // Increment the number of donations. Only called during donation send
-    pub fn increment_donations(&self, storage: &mut dyn Storage) -> StdResult<u64> {
-        let val = self.donation_count(storage)? + 1;
-        self.donation_count.save(storage, &val)?;
-        Ok(val)
-    }
-
-    // Return an AlpineUser from a query with the username
-    pub fn find_alpine_username(&self, storage: &dyn Storage, username: String) -> Result<AlpineUser, ContractError> {
-        let mut usernames = self.usernames.paging_keys(
-            storage,
-            0,
-            u32::MAX,
-        )?;
-        let found = match usernames.iter().any(|&u| u == username){
-            true => username,
-            false => String::from("")
-        };
-
-        // Pull the Alpine user for the designated username
-        let alpine_user = match self.usernames.get(storage, &found.clone()) {
-            Some(user) => user,
-            None => return Err(ContractError::UserNotFound { user: username })
-        };
-
-        Ok(alpine_user)
-    }
-
-    // Check if a username is taken regardless of username casing
-    pub fn contains_username(&self, storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
-        let usernames = self.usernames.paging_keys(
-            storage,
-            0,
-            u32::MAX,
-        )?;
-        let search_result: bool = usernames.contains(&username.to_lowercase());
-
-        Ok(search_result)
-    }
-
-    // Get an Alpine user by their wallet address
-    pub fn get_user_by_address(&self, storage: &dyn Storage, address: Addr) -> Result<AlpineUser, ContractError> {
-        let alpine_user = match self.addresses.get(storage, &address.clone()) {
-            Some(user) => user,
-            None => return Err(ContractError::UserNotFound { user: address.to_string() })
-        };
-
-        Ok(alpine_user)
-    }
+// Increment the number of donations. Only called during donation send
+pub fn increment_donations(storage: &mut dyn Storage) -> StdResult<u64> {
+    let mut state = read_state(storage).load()?;
+    state.donation_count += 1;
+    update_state(storage).save(&state)?;
+    Ok(state.donation_count)
 }
 
 // Define an Alpine user as a username and wallet address
@@ -143,6 +64,35 @@ impl AlpineUser {
     }
 }
 
+// Return an AlpineUser from a query with the username
+pub fn find_alpine_username(storage: &dyn Storage, username: String) -> Result<AlpineUser, ContractError> {
+    let state = read_state(storage).load()?;
+
+    let found = match state.usernames.contains(storage, &username) {
+        true => username,
+        false => String::from("")
+    };
+
+    let alpine_user = match state.usernames.get(storage, &username) {
+        Some(user) => user,
+        None => return Err(ContractError::UserNotFound { user: username })
+    };
+
+    Ok(alpine_user)
+}
+
+// Get an Alpine user by their wallet address
+pub fn get_user_by_address(storage: &dyn Storage, address: Addr) -> Result<AlpineUser, ContractError> {
+    let state = read_state(storage).load()?;
+
+    let alpine_user = match state.addresses.get(storage, &address) {
+        Some(user) => user,
+        None => return Err(ContractError::UserNotFound { user: address.to_string() })
+    };
+
+    Ok(alpine_user)
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DonationInfo {
     pub sender: AlpineUser,
@@ -151,3 +101,87 @@ pub struct DonationInfo {
     pub message: String,
     pub timestamp: Option<Timestamp>
 }
+
+impl DonationInfo {
+
+}
+
+pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u64) -> StdResult<Response> {
+    let state = read_state(storage).load()?;
+    match state.donations.get(storage, &id){
+        Some(_) => state.donations.insert(storage, &id, &donation),
+        None => Err(ContractError::Unauthorized {  })
+    }
+    update_state(state)?;
+    Ok(donation)
+}
+
+
+// pub struct AlpineContract<'a> {
+//     pub donation_count: Item<'a, u64>,
+//     pub donations_sender: Keymap<'a, Addr, DonationInfo>,
+//     pub donations_recipient: Keymap<'a, Addr, DonationInfo>,
+//     // Create a data structure which maps registered usernames to user objects
+//     pub usernames: Keymap<'a, String, AlpineUser>,
+//     // Create a data structure which maps registered addresses to user objects
+//     pub addresses: Keymap<'a, Addr, AlpineUser>
+// }
+
+// impl<'a> Donation for AlpineContract<'a> { }
+
+// impl Default for AlpineContract<'static> {
+//     fn default() -> Self {
+//         Self::new(
+//             "num_donations",
+//             "donations_sender",
+//             "donations_recipient",
+//             "usernames",
+//             addresses: "addresses"
+//         )
+//     }
+// }
+
+// impl<'a> AlpineContract<'a> {
+//     // On contract instantiation, create all of the relevant data structures
+//     fn new(
+//         donation_count_key: &'a [u8],
+//         donations_sender: &'a [u8],
+//         donations_recipient: &'a [u8],
+//         usernames: &'a [u8],
+//         addresses: &'a [u8]
+//     ) -> Self {
+//         Self {
+//             donation_count: Item::new(donation_count_key),
+//             donations_sender: Keymap::new(donations_sender),
+//             donations_recipient: Keymap::new(donations_recipient),
+//             usernames: Keymap::new(usernames),
+//             addresses: Keymap::new(addresses),
+//         }
+//     }
+
+//     // Return the number of donations
+//     pub fn donation_count(&self, storage: &dyn Storage) -> StdResult<u64> {
+//         Ok(self.donation_count.may_load(storage)?.unwrap_or_default())
+//     }
+
+
+
+
+
+//     // Check if a username is taken regardless of username casing
+//     pub fn contains_username(&self, storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
+//         let usernames = self.usernames.paging_keys(
+//             storage,
+//             0,
+//             u32::MAX,
+//         )?;
+//         let search_result: bool = usernames.contains(&username.to_lowercase());
+
+//         Ok(search_result)
+//     }
+
+
+// }
+
+
+

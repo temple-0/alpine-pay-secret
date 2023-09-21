@@ -1,7 +1,7 @@
+use cosmwasm_std::DepsMut;
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     Deps,
-    DepsMut,
     Env,
     MessageInfo,
     Response,  

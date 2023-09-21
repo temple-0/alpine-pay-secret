@@ -4,7 +4,6 @@ use cosmwasm_std::{
     Deps, 
     Env, 
     StdResult, 
-    Order, 
     to_binary,
     Addr,
     Timestamp
@@ -33,6 +32,7 @@ impl<'a> DonationQuery for AlpineContract<'a>
     fn get_sent_donations(&self, deps: Deps, sender: String) -> StdResult<MultiDonationResponse> {
         let sender_user = self.find_alpine_username(deps.storage, sender).unwrap();
 
+        let donations = self.donations_sender.
         // Generate a vector of tuples containing the donation and a byte array identifier.
         let donations: StdResult<Vec<(Vec<_>, _)>> = self
             .donations

@@ -21,6 +21,7 @@ dependencies = [
  "cw2",
  "schemars",
  "secret-cosmwasm-std",
+ "secret-cosmwasm-storage",
  "secret-toolkit-storage",
  "serde",
  "thiserror",
