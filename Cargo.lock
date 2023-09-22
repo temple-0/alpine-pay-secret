@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "alpine-pay"
+name = "alpine-pay-secret"
 version = "0.1.0"
 dependencies = [
  "cosmwasm-schema",
