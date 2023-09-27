@@ -1,0 +1,11 @@
+{
+    "name": "alpine",
+    "image": "mcr.microsoft.com/devcontainers/rust:bookworm",
+    "features": {
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    },
+    "runArgs": [
+        "--network=host",
+    ],
+    "postCreateCommand": ".devcontainer/post_install.sh",
+}
