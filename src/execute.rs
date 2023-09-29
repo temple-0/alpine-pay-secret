@@ -1,4 +1,4 @@
-use cosmwasm_std::{Addr, coins, Decimal, DepsMut, MessageInfo, Env, StdResult, Response, entry_point, ensure_eq, BankMsg};
+use cosmwasm_std::{Addr, coins, Decimal, DepsMut, MessageInfo, Env, StdResult, Response, entry_point, ensure_eq, BankMsg, Binary, to_binary};
 use cw2::{set_contract_version, get_contract_version};
 
 use crate::{msg::{InstantiateMsg, MigrateMsg, ExecuteMsg}, error::ContractError, state::{AlpineUser, DonationInfo, increment_donations, find_alpine_username, update_donations, get_user_by_address, read_state, update_state}};

@@ -68,10 +68,10 @@ impl AlpineUser {
 pub fn find_alpine_username(storage: &dyn Storage, username: String) -> Result<AlpineUser, ContractError> {
     let state = read_state(storage).load()?;
 
-    let found = match state.usernames.contains(storage, &username) {
-        true => username,
-        false => String::from("")
-    };
+    // let found = match state.usernames.contains(storage, &username) {     // todo: wtf did we have this for?
+    //     true => username,
+    //     false => String::from("")
+    // };
 
     let alpine_user = match state.usernames.get(storage, &username) {
         Some(user) => user,
@@ -159,29 +159,21 @@ pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u
 //         }
 //     }
 
-//     // Return the number of donations
-//     pub fn donation_count(&self, storage: &dyn Storage) -> StdResult<u64> {
-//         Ok(self.donation_count.may_load(storage)?.unwrap_or_default())
-//     }
+// Return the number of donations
+pub fn donation_count(storage: &dyn Storage) -> StdResult<u64> {
+    let state = read_state(storage).load()?;
+    Ok(state.donation_count.may_load(storage)?.unwrap_or_default())
+}
 
+// Check if a username is taken regardless of username casing
+pub fn contains_username(storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
+    let state = read_state(storage).load()?;
+    let usernames = state.usernames.paging_keys(
+        storage,
+        0,
+        u32::MAX,
+    )?;
+    let search_result: bool = usernames.contains(&username.to_lowercase());
 
-
-
-
-//     // Check if a username is taken regardless of username casing
-//     pub fn contains_username(&self, storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
-//         let usernames = self.usernames.paging_keys(
-//             storage,
-//             0,
-//             u32::MAX,
-//         )?;
-//         let search_result: bool = usernames.contains(&username.to_lowercase());
-
-//         Ok(search_result)
-//     }
-
-
-// }
-
-
-
+    Ok(search_result)
+}
