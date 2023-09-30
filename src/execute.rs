@@ -1,7 +1,38 @@
-use cosmwasm_std::{Addr, coins, Decimal, DepsMut, MessageInfo, Env, StdResult, Response, entry_point, ensure_eq, BankMsg, Binary, to_binary};
+use cosmwasm_std::{
+    Addr,
+    coins,
+    Decimal,
+    DepsMut,
+    MessageInfo,
+    Env,
+    StdResult,
+    Response,
+    entry_point,
+    BankMsg
+};
 use cw2::{set_contract_version, get_contract_version};
 
-use crate::{msg::{InstantiateMsg, MigrateMsg, ExecuteMsg}, error::ContractError, state::{AlpineUser, DonationInfo, increment_donations, find_alpine_username, update_donations, get_user_by_address, read_state, update_state}};
+use crate::{
+    msg::{
+        InstantiateMsg,
+        MigrateMsg,
+        ExecuteMsg
+    }, 
+    error::ContractError,
+    state::{
+        AlpineUser,
+        DonationInfo,
+        increment_donations,
+        find_alpine_username,
+        update_donations,
+        get_user_by_address,
+        read_state,
+        update_state,
+        USERNAMES,
+        ADDRESSES
+    }
+};
+
 #[cfg(not(feature = "library"))]
 // version info for migration info
 const CONTRACT_NAME: &str = "crates.io:alpine-pay";
@@ -14,7 +45,7 @@ pub fn instantiate(
     _info: MessageInfo,
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    // set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION);
     Ok(Response::default())
 }
 
@@ -23,10 +54,10 @@ pub fn migrate(
     deps: DepsMut,
     _env: Env,
     _msg: MigrateMsg
-) -> StdResult<Response> {
-    let ver = get_contract_version(deps.storage)?;
-    ensure_eq!(ver.contract, CONTRACT_NAME, ContractError::IncorrectContractName { contract_name: String::from(CONTRACT_NAME) });
-    set_contract_version(deps.storage, ver.contract, ver.version.clone())?;
+) -> Result<Response, ContractError> {
+    // let ver = get_contract_version(deps.storage);
+    // ensure_eq!(ver.contract, CONTRACT_NAME, ContractError::IncorrectContractName { contract_name: String::from(CONTRACT_NAME) });
+    // set_contract_version(deps.storage, ver.contract, ver.version.clone())?;
 
     Ok(Response::default())
 }
@@ -37,7 +68,7 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::SendDonation { sender, recipient, message } => send_donation(deps, _env, info, sender, recipient, message),
         // With register we can authenticate the user here, whereas with SendDonation it's a bit more complex and done later
@@ -100,7 +131,7 @@ fn send_donation(
     // Update the donations and set the new donation's ID
     let id = increment_donations(deps.storage)?;
 
-    update_donations(deps.storage, donation, id)?;
+    update_donations(deps.storage, donation.clone(), id)?;
 
     let total_donation_amount = donation.amount.clone()[0].amount;
     let donation_fee = Decimal::percent(3) * donation.amount.clone()[0].amount;
@@ -157,20 +188,24 @@ fn register_user(
     let state = read_state(deps.storage).load()?;
 
     // Verify that the desired username isn't already taken
-    let searched_username = match state.usernames.get(deps.storage, &valid_username.clone()) {
-        Ok(result) => match result {
-            Some(_) => Err(ContractError::UsernameNotAvailable { username: valid_username.clone() }),
-            None => Ok(valid_username.clone())
-        },
-        Err(e) => Err(ContractError::Std(e))
+    // let searched_username = match USERNAMES.get(deps.storage, &valid_username.clone()) {
+    //     Ok(result) => match result {
+    //         Some(_) => Err(ContractError::UsernameNotAvailable { username: valid_username.clone() }),
+    //         None => Ok(valid_username.clone())
+    //     },
+    //     Err(e) => Err(ContractError::Std(e))
+    // }?;
+    let searched_username = match find_alpine_username(deps.storage, username.clone()) {
+        Ok(alpine_user) => Err(ContractError::UsernameNotAvailable { username: username.clone() }),
+        Err(e) => Ok(username)
     }?;
 
     // Set the user's username, then save them to the contract
-    user.username = searched_username;
+    user.username = searched_username.clone();
 
-    state.usernames.insert(deps.storage, &searched_username, &user)?;
-    state.addresses.insert(deps.storage, &user.address.clone(), &user)?;
-    update_state(state)?;
+    USERNAMES.insert(deps.storage, &searched_username, &user)?;
+    ADDRESSES.insert(deps.storage, &user.address.clone(), &user)?;
+    update_state(deps.storage);
     
     Ok(Response::new().add_attribute("username", user.username))
 }

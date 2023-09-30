@@ -8,15 +8,18 @@ use crate::error::ContractError;
 
 const STATE_KEY: &[u8] = b"state";
 const DONATION_COUNT_KEY: &[u8] = b"donation_count";
+const DONATIONS_KEY: &[u8] = b"donations";
+const USERNAMES_KEY: &[u8] = b"usernames";
+const ADDRESSES_KEY: &[u8] = b"addresses";
+pub static DONATIONS: Keymap<u64, DonationInfo> = Keymap::new(DONATIONS_KEY);
+// Create a data structure which maps registered usernames to user objects
+pub static USERNAMES: Keymap<String, AlpineUser> = Keymap::new(USERNAMES_KEY);
+// Create a data structure which maps registered addresses to user objects
+pub static ADDRESSES: Keymap<Addr, AlpineUser>  = Keymap::new(ADDRESSES_KEY);
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
-pub struct State<'a>{
+#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+pub struct State{
     pub donation_count: u64,
-    pub donations: Keymap<'a, u64, DonationInfo>,
-    // Create a data structure which maps registered usernames to user objects
-    pub usernames: Keymap<'a, String, AlpineUser>,
-    // Create a data structure which maps registered addresses to user objects
-    pub addresses: Keymap<'a, Addr, AlpineUser>
 }
 
 pub fn update_state(storage: &mut dyn Storage) -> Singleton<State> {
@@ -68,12 +71,7 @@ impl AlpineUser {
 pub fn find_alpine_username(storage: &dyn Storage, username: String) -> Result<AlpineUser, ContractError> {
     let state = read_state(storage).load()?;
 
-    // let found = match state.usernames.contains(storage, &username) {     // todo: wtf did we have this for?
-    //     true => username,
-    //     false => String::from("")
-    // };
-
-    let alpine_user = match state.usernames.get(storage, &username) {
+    let alpine_user = match USERNAMES.get(storage, &username) {
         Some(user) => user,
         None => return Err(ContractError::UserNotFound { user: username })
     };
@@ -85,7 +83,7 @@ pub fn find_alpine_username(storage: &dyn Storage, username: String) -> Result<A
 pub fn get_user_by_address(storage: &dyn Storage, address: Addr) -> Result<AlpineUser, ContractError> {
     let state = read_state(storage).load()?;
 
-    let alpine_user = match state.addresses.get(storage, &address) {
+    let alpine_user = match ADDRESSES.get(storage, &address) {
         Some(user) => user,
         None => return Err(ContractError::UserNotFound { user: address.to_string() })
     };
@@ -106,13 +104,12 @@ impl DonationInfo {
 
 }
 
-pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u64) -> StdResult<Response> {
-    let state = read_state(storage).load()?;
-    match state.donations.get(storage, &id){
-        Some(_) => state.donations.insert(storage, &id, &donation),
-        None => Err(ContractError::Unauthorized {  })
+pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u64) -> Result<DonationInfo, ContractError> {
+    match DONATIONS.get(storage, &id){
+        Some(_) => { DONATIONS.insert(storage, &id, &donation); }
+        None => return Err(ContractError::Unauthorized {  })
     }
-    update_state(state)?;
+    update_state(storage);
     Ok(donation)
 }
 
@@ -162,13 +159,12 @@ pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u
 // Return the number of donations
 pub fn donation_count(storage: &dyn Storage) -> StdResult<u64> {
     let state = read_state(storage).load()?;
-    Ok(state.donation_count.may_load(storage)?.unwrap_or_default())
+    Ok(state.donation_count)
 }
 
 // Check if a username is taken regardless of username casing
 pub fn contains_username(storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
-    let state = read_state(storage).load()?;
-    let usernames = state.usernames.paging_keys(
+    let usernames = USERNAMES.paging_keys(
         storage,
         0,
         u32::MAX,
