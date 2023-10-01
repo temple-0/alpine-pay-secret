@@ -7,7 +7,7 @@ use serde::{Serialize, Deserialize};
 use crate::error::ContractError;
 
 const STATE_KEY: &[u8] = b"state";
-const DONATION_COUNT_KEY: &[u8] = b"donation_count";
+const DONATION_COUNT_KEY: &[u8] = b"donation_count";    // todo: do we need this?
 const DONATIONS_KEY: &[u8] = b"donations";
 const USERNAMES_KEY: &[u8] = b"usernames";
 const ADDRESSES_KEY: &[u8] = b"addresses";
