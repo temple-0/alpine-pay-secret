@@ -2,11 +2,10 @@
 #[cfg(test)]
 mod alpine_user_tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, DepsMut, Addr, Response };
+    use cosmwasm_std::{from_binary, Addr };
 
-    use crate::execute::{execute, instantiate};
+    use crate::execute::execute;
     use crate::msg::{
-        InstantiateMsg,
         ExecuteMsg,
         QueryMsg,
         MultiUserResponse,
@@ -19,16 +18,6 @@ mod alpine_user_tests {
         state::AlpineUser,
         msg::UsernameAvailableResponse
     };
-
-    // A basic utility function to setup the contract so we don't have to do this every time
-    fn setup_contract(deps: DepsMut<'_>) -> Response {
-        let msg = InstantiateMsg {};
-        let info = mock_info("creator", &[]);
-
-        let res = instantiate(deps, mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-        res
-    }
 
     // Attempt to create a user with an invalid wallet address. Should error out
     #[test]
@@ -81,7 +70,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_empty_username() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -102,7 +90,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_too_long() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -125,7 +112,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_backslash() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -148,7 +134,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_spaces() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -171,7 +156,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_encoded() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -194,7 +178,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_encoded_greekletter() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -217,7 +200,6 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_true() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
         let test_username = String::from("alpine_user_1");
 
         let test_user = AlpineUser::new(
@@ -237,7 +219,6 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_false() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
         let test_username = String::from("alpine_user_1");
 
         let test_user = AlpineUser::new(
@@ -258,7 +239,6 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_false_case_insensitive() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
         let test_username = String::from("alpine_user_1");
 
         let test_user = AlpineUser::new(
@@ -278,7 +258,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unavailable() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -307,7 +286,6 @@ mod alpine_user_tests {
     #[test]
     fn save_username_success() {
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -328,7 +306,6 @@ mod alpine_user_tests {
     #[test]
     fn get_usernames(){
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -364,7 +341,6 @@ mod alpine_user_tests {
     #[test]
     fn change_username_from_anonymous(){
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         let mut test_user = AlpineUser::new(
             deps.as_ref(),
@@ -392,7 +368,6 @@ mod alpine_user_tests {
     #[test]
     fn get_user_by_bad_address(){
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -418,7 +393,6 @@ mod alpine_user_tests {
     #[test]
     fn get_user_by_good_address(){
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -437,8 +411,7 @@ mod alpine_user_tests {
     // Try to grab a user with a nonexistent username. Results successful, user object is empty
     #[test]
     fn get_user_by_nonexistent_username(){
-        let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
+        let deps = mock_dependencies();
 
         // Create an empty user for the assert
         let empty_user = AlpineUser::empty();
@@ -453,7 +426,6 @@ mod alpine_user_tests {
     #[test]
     fn get_user_by_good_username(){
         let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -474,11 +446,10 @@ mod alpine_user_tests {
 #[cfg(test)]
 mod donation_tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, DepsMut, coins, MessageInfo, Addr, Response};
+    use cosmwasm_std::{from_binary, coins, MessageInfo, Addr};
 
-    use crate::execute::{instantiate, execute};
+    use crate::execute::execute;
     use crate::msg::{
-        InstantiateMsg,
         ExecuteMsg,
         QueryMsg,
         MultiDonationResponse, DonationCountResponse,
@@ -490,21 +461,10 @@ mod donation_tests {
         state::AlpineUser
     };
 
-    // A utility function to set up a contract
-    fn setup_contract(deps: DepsMut<'_>) -> Response {
-        let msg = InstantiateMsg {};
-        let info = mock_info("creator", &[]);
-
-        let res = instantiate(deps, mock_env(), info, msg).unwrap();
-        assert_eq!(0, res.messages.len());
-        res
-    }
-
     // Validate that instantiation is succesful
     #[test]
     fn proper_instantiation() {
-        let mut deps = mock_dependencies();
-        let contract = setup_contract(deps.as_mut());
+        let deps = mock_dependencies();
 
         // let donation_count = contract.get_donation_count(deps.as_ref()).unwrap();
         let response = query(deps.as_ref(), mock_env(), QueryMsg::GetDonationCount {  }).unwrap();
@@ -529,7 +489,6 @@ mod donation_tests {
         ).unwrap();
 
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
 
         let msg = ExecuteMsg::SendDonation { 
@@ -562,7 +521,6 @@ mod donation_tests {
             funds: Vec::new()
         };
 
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
 
@@ -592,7 +550,6 @@ mod donation_tests {
             Some(String::from("USER_B")) 
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(0, "earth"));
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
 
@@ -625,7 +582,7 @@ mod donation_tests {
             Some(String::from("USER_B")) 
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        let contract = setup_contract(deps.as_mut());
+
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
 
@@ -665,7 +622,6 @@ mod donation_tests {
             Some(String::from("USER_D"))
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
@@ -724,7 +680,6 @@ mod donation_tests {
             Some(String::from("USER_D"))
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
@@ -785,7 +740,6 @@ mod donation_tests {
             Addr::unchecked("osmo1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
             Some(String::from("USER_D"))
         ).unwrap();
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
@@ -846,7 +800,6 @@ mod donation_tests {
             Addr::unchecked("osmo1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
             Some(String::from("USER_D"))
         ).unwrap();
-        let contract = setup_contract(deps.as_mut());
         USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
         USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();

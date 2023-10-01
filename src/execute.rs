@@ -196,8 +196,8 @@ fn register_user(
     //     Err(e) => Err(ContractError::Std(e))
     // }?;
     let searched_username = match find_alpine_username(deps.storage, username.clone()) {
-        Ok(alpine_user) => Err(ContractError::UsernameNotAvailable { username: username.clone() }),     // todo: unused var
-        Err(e) => Ok(username)
+        Ok(_alpine_user) => Err(ContractError::UsernameNotAvailable { username: username.clone() }),
+        Err(_e) => Ok(username)
     }?;
 
     // Set the user's username, then save them to the contract
