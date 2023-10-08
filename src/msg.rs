@@ -32,7 +32,7 @@ pub enum QueryMsg {
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub struct MultiDonationResponse{
-    pub donations: Vec<(Vec<u8>, DonationInfo)>
+    pub donations: Vec<DonationInfo>
 }
 
 // Return a list of Alpine users

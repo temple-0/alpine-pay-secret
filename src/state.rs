@@ -1,25 +1,17 @@
-use cosmwasm_std::{Addr, Timestamp, Deps, Storage, StdResult, Response};
+use cosmwasm_std::{Addr, Timestamp, Deps, Storage, StdResult};
 use cosmwasm_storage::{Singleton, singleton, ReadonlySingleton, singleton_read};
 use schemars::JsonSchema;
-use secret_toolkit_storage::Keymap;
 use serde::{Serialize, Deserialize};
 
 use crate::error::ContractError;
 
 const STATE_KEY: &[u8] = b"state";
-const DONATION_COUNT_KEY: &[u8] = b"donation_count";    // todo: do we need this?
-const DONATIONS_KEY: &[u8] = b"donations";
-const USERNAMES_KEY: &[u8] = b"usernames";
-const ADDRESSES_KEY: &[u8] = b"addresses";
-pub static DONATIONS: Keymap<u64, DonationInfo> = Keymap::new(DONATIONS_KEY);
-// Create a data structure which maps registered usernames to user objects
-pub static USERNAMES: Keymap<String, AlpineUser> = Keymap::new(USERNAMES_KEY);
-// Create a data structure which maps registered addresses to user objects
-pub static ADDRESSES: Keymap<Addr, AlpineUser>  = Keymap::new(ADDRESSES_KEY);
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct State{
     pub donation_count: u64,
+    pub users: Vec<AlpineUser>,
+    pub donations: Vec<DonationInfo>
 }
 
 pub fn update_state(storage: &mut dyn Storage) -> Singleton<State> {
@@ -70,29 +62,28 @@ impl AlpineUser {
 // Return an AlpineUser from a query with the username
 pub fn find_alpine_username(storage: &dyn Storage, username: String) -> Result<AlpineUser, ContractError> {
     let state = read_state(storage).load()?;
-
-    let alpine_user = match USERNAMES.get(storage, &username) {
-        Some(user) => user,
-        None => return Err(ContractError::UserNotFound { user: username })
+    for user in state.users{
+        if user.username == username{
+            return Ok(user)
+        }
     };
-
-    Ok(alpine_user)
+    Err(ContractError::UserNotFound { user: username.to_string() })
 }
 
 // Get an Alpine user by their wallet address
 pub fn get_user_by_address(storage: &dyn Storage, address: Addr) -> Result<AlpineUser, ContractError> {
     let state = read_state(storage).load()?;
-
-    let alpine_user = match ADDRESSES.get(storage, &address) {
-        Some(user) => user,
-        None => return Err(ContractError::UserNotFound { user: address.to_string() })
+    for user in state.users{
+        if user.address == address{
+            return Ok(user)
+        }
     };
-
-    Ok(alpine_user)
+    Err(ContractError::UserNotFound { user: address.to_string() })
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 pub struct DonationInfo {
+    pub id: u64,
     pub sender: AlpineUser,
     pub recipient: AlpineUser,
     pub amount: Vec<cosmwasm_std::Coin>,
@@ -104,12 +95,16 @@ impl DonationInfo {
 
 }
 
-pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo, id: u64) -> Result<DonationInfo, ContractError> {
-    match DONATIONS.get(storage, &id){
-        Some(_) => { DONATIONS.insert(storage, &id, &donation); }
-        None => return Err(ContractError::Unauthorized {  })
+pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo) -> Result<DonationInfo, ContractError> {
+    let mut state = read_state(storage).load()?;
+    for dono in state.donations.clone(){
+        if dono.id == donation.id{
+            return Err(ContractError::Unauthorized {  })
+        }
     }
-    update_state(storage);
+    state.donations.append(&mut vec![donation.clone()]);
+    state.donation_count += 1;
+    update_state(storage).save(&state)?;
     Ok(donation)
 }
 
@@ -164,12 +159,11 @@ pub fn donation_count(storage: &dyn Storage) -> StdResult<u64> {
 
 // Check if a username is taken regardless of username casing
 pub fn contains_username(storage: &dyn Storage, username: String) -> Result<bool, ContractError> {
-    let usernames = USERNAMES.paging_keys(
-        storage,
-        0,
-        u32::MAX,
-    )?;
-    let search_result: bool = usernames.contains(&username.to_lowercase());
-
-    Ok(search_result)
+    let state = read_state(storage).load()?;
+    for user in state.users{
+        if user.username.to_lowercase() == username.to_lowercase(){
+            return Ok(true)
+        }
+    }
+    return Ok(false)
 }

@@ -1,4 +1,4 @@
-use cosmwasm_std::entry_point;
+use cosmwasm_std::{entry_point, StdError};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     Binary, 
@@ -23,8 +23,7 @@ use crate::state::{
     DonationInfo, 
     donation_count,
     find_alpine_username, 
-    read_state,
-    contains_username, self, ADDRESSES, get_user_by_address, USERNAMES, DONATIONS
+    contains_username, get_user_by_address, read_state
 };
 // use crate::traits::DonationQuery;
 
@@ -49,7 +48,7 @@ fn get_donation_count(deps: Deps) -> StdResult<DonationCountResponse> {
 
 // Get all of the donations sent by a user
 fn get_sent_donations(deps: Deps, sender: String) -> StdResult<MultiDonationResponse> {
-    // let state = read_state(deps.storage).load()?;
+    let state = read_state(deps.storage).load()?;
     // let sender_user = find_alpine_username(deps.storage, sender).unwrap();
 
     // // Generate a vector of tuples containing the donation and a byte array identifier.
@@ -64,49 +63,28 @@ fn get_sent_donations(deps: Deps, sender: String) -> StdResult<MultiDonationResp
 
     // Ok(MultiDonationResponse{ donations })
     let sender_user = find_alpine_username(deps.storage, sender).unwrap();
-    let received_donations: Vec<Result<(u64, DonationInfo), cosmwasm_std::StdError>> = DONATIONS
-        .iter(deps.storage)?
-        .filter(|d| d.as_ref().unwrap().1.sender == sender_user)
-        .collect();
-    
-    let mut donations: Vec<DonationInfo> = vec![];
-    for donation in received_donations {
-        let donation = donation?;
-        donations.push(donation.1);
+    let mut sent_donations: Vec<DonationInfo> = vec![];
+    for donation in state.donations{
+        if donation.sender == sender_user {
+            sent_donations.append(&mut vec![donation]);
+        }
     }
-
-    Ok(MultiDonationResponse { donations: vec![] })
+    Ok(MultiDonationResponse { donations: sent_donations })
 }
 
 // Get all of the donations received by a user
 fn get_received_donations(deps: Deps, recipient: String) -> StdResult<MultiDonationResponse> {
-    // let state = read_state(deps.storage).load()?;
-    // let recipient_user = find_alpine_username(deps.storage, recipient).unwrap();
+    let state = read_state(deps.storage).load()?;
 
-    // // Generate a vector of tuples containing the donation and a byte array identifier
-    // let donations: StdResult<Vec<(Vec<_>, _)>> = state
-    //     .donations
-    //     .idx
-    //     .recipient
-    //     .prefix(recipient_user)
-    //     .range(deps.storage, None, None, Order::Ascending)
-    //     .collect();
-    // let donations = sort_donations_by_date(donations?.clone());
-
-    // Ok(MultiDonationResponse{ donations })
     let recipient_user = find_alpine_username(deps.storage, recipient).unwrap();
-    let received_donations: Vec<Result<(u64, DonationInfo), cosmwasm_std::StdError>> = DONATIONS
-        .iter(deps.storage)?
-        .filter(|d| d.as_ref().unwrap().1.recipient == recipient_user)
-        .collect();
-    
-    let mut donations: Vec<DonationInfo> = vec![];
-    for donation in received_donations {
-        let donation = donation?;
-        donations.push(donation.1);
+    let mut received_donations: Vec<DonationInfo> = vec![];
+    for donation in state.donations{
+        if donation.recipient.address == recipient_user.address {
+            received_donations.append(&mut vec![donation]);
+        }
     }
 
-    Ok(MultiDonationResponse { donations: vec![] })
+    Ok(MultiDonationResponse { donations: received_donations })
 }
 
 // Check if a username has already been registered
@@ -117,35 +95,17 @@ fn is_username_available(deps: Deps, username: String) -> StdResult<UsernameAvai
 
 // Get a list of all registered users
 fn get_all_users(deps: Deps) -> StdResult<MultiUserResponse> {
-    // let state = read_state(deps.storage).load()?;
-    // // Get a list of usernames mapped to their corresponding user
-    // let usernames: StdResult<Vec<(String, _)>> = state
-    //     .usernames
-    //     .prefix_range(deps.storage, None, None, Order::Ascending)
-    //     .collect();
-    // let usernames = usernames?;
+    let state = read_state(deps.storage).load()?;
 
-    // // Remove the Alpine user from the vector above, returning just a list of usernames
-    // let mut users: Vec<AlpineUser> = Vec::new();
-    // for username in usernames{
-    //     users.push(username.1);
-    // }
-
-    // Ok(MultiUserResponse{ users })
-    let user_iter = USERNAMES.iter(deps.storage)?;
-    let mut users:  Vec<AlpineUser> = vec![];
-    for user in user_iter {
-        let user = user?;
-        users.push(user.1);
-    }
-
-    Ok(MultiUserResponse { users })
+    Ok(MultiUserResponse { users: state.users })
 }
 
 // Find the corresponding Alpine user for a given wallet address
 fn get_user_by_addr(deps: Deps, address: Addr) -> StdResult<AlpineUserResponse>{
-    let user = get_user_by_address(deps.storage, address).unwrap();
-    Ok(AlpineUserResponse{ user })
+    let user = match  get_user_by_address(deps.storage, address) {
+        Ok(user) => { return Ok(AlpineUserResponse{ user }) },
+        Err(e) => { return Err(StdError::GenericErr { msg: e.to_string() }) }
+    };
 }
 
 // Find the corresponding Alpine user for a given username

@@ -2,22 +2,30 @@
 #[cfg(test)]
 mod alpine_user_tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, Addr };
+    use cosmwasm_std::{from_binary, Addr, DepsMut };
 
-    use crate::execute::execute;
+    use crate::execute::{execute, instantiate};
     use crate::msg::{
         ExecuteMsg,
         QueryMsg,
         MultiUserResponse,
-        AlpineUserResponse
+        AlpineUserResponse, InstantiateMsg
     };
     use crate::query::query;
-    use crate::state::{USERNAMES, ADDRESSES};
+    use crate::state::{read_state, update_state};
     use crate::{
         error::ContractError,
         state::AlpineUser,
         msg::UsernameAvailableResponse
     };
+
+    // A basic utility function to setup the contract so we don't have to do this every time
+    fn setup_contract(deps: DepsMut<'_>) {
+        let msg = InstantiateMsg {};
+        let info = mock_info("creator", &[]);
+
+        instantiate(deps, mock_env(), info, msg).unwrap();
+    }
 
     // Attempt to create a user with an invalid wallet address. Should error out
     #[test]
@@ -70,6 +78,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_empty_username() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -90,6 +99,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_too_long() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -112,6 +122,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_backslash() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -134,6 +145,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_spaces() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -156,6 +168,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_encoded() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -178,6 +191,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unsupported_characters_encoded_greekletter() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -200,6 +214,8 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_true() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let test_username = String::from("alpine_user_1");
 
         let test_user = AlpineUser::new(
@@ -207,7 +223,9 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
             None
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &test_username.clone(), &test_user).unwrap();
+
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = QueryMsg::IsUsernameAvailable { username: String::from("alpine_user_2") };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -219,14 +237,16 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_false() {
         let mut deps = mock_dependencies();
-        let test_username = String::from("alpine_user_1");
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
-            None
+            Some(String::from("alpine_user_1"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &test_username.clone(), &test_user).unwrap();
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = QueryMsg::IsUsernameAvailable { username: String::from("alpine_user_1") };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -239,14 +259,16 @@ mod alpine_user_tests {
     #[test]
     fn is_username_available_false_case_insensitive() {
         let mut deps = mock_dependencies();
-        let test_username = String::from("alpine_user_1");
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
-            None
+            Some(String::from("alpine_user_1"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &test_username.clone(), &test_user).unwrap();
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = QueryMsg::IsUsernameAvailable { username: String::from("ALPINE_USER_1") };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -258,13 +280,16 @@ mod alpine_user_tests {
     #[test]
     fn save_username_unavailable() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
-            None
+            Some(String::from("alpine_user_1"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &String::from("alpine_user_1"), &test_user).unwrap();
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let new_user = AlpineUser::new(
             deps.as_ref(),
@@ -275,7 +300,7 @@ mod alpine_user_tests {
         let username = String::from("alpine_user_1");
         let msg = ExecuteMsg::RegisterUser {
             user: new_user.clone(),
-            username: username.clone()
+            username: username.clone(),
         };
         let info = mock_info(new_user.address.as_str(), &[]);
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap_err();
@@ -286,6 +311,7 @@ mod alpine_user_tests {
     #[test]
     fn save_username_success() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let test_user = AlpineUser::new(
             deps.as_ref(),
@@ -306,6 +332,8 @@ mod alpine_user_tests {
     #[test]
     fn get_usernames(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -313,7 +341,8 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
             None
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &String::from("alpine_user_1"), &test_user).unwrap();
+        state.users.append(&mut vec![test_user]);
+        update_state(&mut deps.storage).save(&state).unwrap();
 
         // Save User Two
         let new_user = AlpineUser::new(
@@ -321,7 +350,8 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
             None
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &String::from("alpine_user_2"), &new_user).unwrap();
+        state.users.append(&mut vec![new_user]);
+        update_state(&mut deps.storage).save(&state).unwrap();
 
         // Save User Three
         let new_user = AlpineUser::new(
@@ -329,7 +359,8 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1hrm44y69kzdjqq2tn6hh9cq3tzmfsa9rfgv7d9"),
             None
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &String::from("alpine_user_3"), &new_user).unwrap();
+        state.users.append(&mut vec![new_user]);
+        update_state(&mut deps.storage).save(&state).unwrap();
 
         let msg = QueryMsg::GetAllUsers { };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -341,6 +372,7 @@ mod alpine_user_tests {
     #[test]
     fn change_username_from_anonymous(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         let mut test_user = AlpineUser::new(
             deps.as_ref(),
@@ -368,6 +400,8 @@ mod alpine_user_tests {
     #[test]
     fn get_user_by_bad_address(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -375,24 +409,28 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
             Some(String::from("alpine_user_1"))
         ).unwrap();
-        ADDRESSES.insert(&mut deps.storage, &Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"), &test_user).unwrap();
+        
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         // Junk user
         let junk_user = AlpineUser::new(
             deps.as_ref(),
-            Addr::unchecked("somejunk"),
+            Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jj"),
             Some(String::from(""))
         ).unwrap();
 
         let msg = QueryMsg::GetUserByAddr{ address: junk_user.address.clone() };
-        let res: AlpineUserResponse = from_binary(&query(deps.as_ref(), mock_env(), msg).unwrap()).unwrap();
-        assert_eq!(res.user, junk_user);
+        &query(deps.as_ref(), mock_env(), msg).unwrap_err();
     }
 
     // Try to grab a user with a good address. Results successful
     #[test]
     fn get_user_by_good_address(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
+        
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -400,7 +438,8 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
             Some(String::from("alpine_user_1"))
         ).unwrap();
-        ADDRESSES.insert(&mut deps.storage, &Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"), &test_user).unwrap();
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state).unwrap();
 
         let msg = QueryMsg::GetUserByAddr{ address: Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh") };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -411,7 +450,8 @@ mod alpine_user_tests {
     // Try to grab a user with a nonexistent username. Results successful, user object is empty
     #[test]
     fn get_user_by_nonexistent_username(){
-        let deps = mock_dependencies();
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         // Create an empty user for the assert
         let empty_user = AlpineUser::empty();
@@ -426,6 +466,8 @@ mod alpine_user_tests {
     #[test]
     fn get_user_by_good_username(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
 
         // Save User One
         let test_user = AlpineUser::new(
@@ -433,7 +475,8 @@ mod alpine_user_tests {
             Addr::unchecked("osmo1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
             Some(String::from("alpine_user_1"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &String::from("alpine_user_1"), &test_user).unwrap();
+        state.users.append(&mut vec![test_user.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = QueryMsg::GetUserByName{ username: String::from("alpine_user_1") };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
@@ -446,25 +489,34 @@ mod alpine_user_tests {
 #[cfg(test)]
 mod donation_tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, coins, MessageInfo, Addr};
+    use cosmwasm_std::{from_binary, coins, MessageInfo, Addr, DepsMut};
 
-    use crate::execute::execute;
+    use crate::execute::{execute, instantiate};
     use crate::msg::{
         ExecuteMsg,
         QueryMsg,
-        MultiDonationResponse, DonationCountResponse,
+        MultiDonationResponse, DonationCountResponse, InstantiateMsg,
     };
     use crate::query::query;
-    use crate::state::USERNAMES;
+    use crate::state::{read_state, update_state};
     use crate::{
         error::ContractError,
         state::AlpineUser
     };
 
+    // A basic utility function to setup the contract so we don't have to do this every time
+    fn setup_contract(deps: DepsMut<'_>) {
+        let msg = InstantiateMsg {};
+        let info = mock_info("creator", &[]);
+
+        instantiate(deps, mock_env(), info, msg).unwrap();
+    }
+
     // Validate that instantiation is succesful
     #[test]
     fn proper_instantiation() {
-        let deps = mock_dependencies();
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
 
         // let donation_count = contract.get_donation_count(deps.as_ref()).unwrap();
         let response = query(deps.as_ref(), mock_env(), QueryMsg::GetDonationCount {  }).unwrap();
@@ -476,6 +528,8 @@ mod donation_tests {
     #[test]
     fn send_donation_to_nonexistent_recipient() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -489,7 +543,8 @@ mod donation_tests {
         ).unwrap();
 
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message, 
@@ -505,6 +560,8 @@ mod donation_tests {
     #[test]
     fn send_no_dono() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -521,8 +578,8 @@ mod donation_tests {
             funds: Vec::new()
         };
 
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message, 
@@ -538,6 +595,8 @@ mod donation_tests {
     #[test]
     fn send_no_dono_amount() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -550,8 +609,8 @@ mod donation_tests {
             Some(String::from("USER_B")) 
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(0, "earth"));
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message, 
@@ -567,6 +626,8 @@ mod donation_tests {
     #[test]
     fn send_too_long_message() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("This message is really long. In fact, it's actually too long for you to use it in our app.\
                     We shouldn't allow users to send a message that's this long. There's no reason to send a message that's this long. If I was a \
                     content creator and I was constantly having people send me giant messages like this for like $3, I would not only hate this app, \
@@ -583,8 +644,8 @@ mod donation_tests {
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
 
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message, 
@@ -600,6 +661,8 @@ mod donation_tests {
     #[test]
     fn get_multiple_sent_donations() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -622,10 +685,8 @@ mod donation_tests {
             Some(String::from("USER_D"))
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_d.username.clone(), &alpine_user_d).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message.clone(), 
@@ -658,6 +719,8 @@ mod donation_tests {
     #[test]
     fn get_multiple_sent_donations_sorted(){
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -680,10 +743,8 @@ mod donation_tests {
             Some(String::from("USER_D"))
         ).unwrap();
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_d.username.clone(), &alpine_user_d).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message.clone() + "1", 
@@ -709,9 +770,9 @@ mod donation_tests {
         let msg = QueryMsg::GetSentDonations { sender: alpine_user_a.username.clone() };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
         let sent_donations: MultiDonationResponse = from_binary(&res).unwrap();
-        assert_eq!(donation_message.clone() + "1", sent_donations.donations[0].1.message);
-        assert_eq!(donation_message.clone() + "2", sent_donations.donations[1].1.message);
-        assert_eq!(donation_message.clone() + "3", sent_donations.donations[2].1.message);
+        assert_eq!(donation_message.clone() + "1", sent_donations.donations[0].message);
+        assert_eq!(donation_message.clone() + "2", sent_donations.donations[1].message);
+        assert_eq!(donation_message.clone() + "3", sent_donations.donations[2].message);
 
     }
 
@@ -719,6 +780,8 @@ mod donation_tests {
     #[test]
     fn get_multiple_received_donations() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -740,10 +803,9 @@ mod donation_tests {
             Addr::unchecked("osmo1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
             Some(String::from("USER_D"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_d.username.clone(), &alpine_user_d).unwrap();
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state);
+
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message.clone(), 
@@ -751,7 +813,7 @@ mod donation_tests {
             recipient: alpine_user_a.username.clone()
         };
         let info = mock_info(alpine_user_b.address.as_str(), &coins(1000, "earth"));
-        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message.clone(), 
@@ -779,6 +841,8 @@ mod donation_tests {
     #[test]
     fn get_multiple_received_donations_sorted() {
         let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
         let donation_message: String = String::from("henlo :)");
         let alpine_user_a: AlpineUser = AlpineUser::new(
             deps.as_ref(),
@@ -800,10 +864,9 @@ mod donation_tests {
             Addr::unchecked("osmo1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
             Some(String::from("USER_D"))
         ).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_a.username.clone(), &alpine_user_a).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_b.username.clone(), &alpine_user_b).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_c.username.clone(), &alpine_user_c).unwrap();
-        USERNAMES.insert(&mut deps.storage, &alpine_user_d.username.clone(), &alpine_user_d).unwrap();
+
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state);
 
         let msg = ExecuteMsg::SendDonation { 
             message: donation_message.clone() + "1", 
@@ -832,9 +895,9 @@ mod donation_tests {
         let msg = QueryMsg::GetReceivedDonations { recipient: alpine_user_a.username.clone() };
         let res = query(deps.as_ref(), mock_env(), msg).unwrap();
         let received_donations: MultiDonationResponse = from_binary(&res).unwrap();
-        assert_eq!(donation_message.clone() + "1", received_donations.donations[0].1.message);
-        assert_eq!(donation_message.clone() + "2", received_donations.donations[1].1.message);
-        assert_eq!(donation_message.clone() + "3", received_donations.donations[2].1.message);
+        assert_eq!(donation_message.clone() + "1", received_donations.donations[0].message);
+        assert_eq!(donation_message.clone() + "2", received_donations.donations[1].message);
+        assert_eq!(donation_message.clone() + "3", received_donations.donations[2].message);
     }
 }
 

@@ -26,10 +26,8 @@ use crate::{
         find_alpine_username,
         update_donations,
         get_user_by_address,
-        read_state,
-        update_state,
-        USERNAMES,
-        ADDRESSES
+        State, 
+        update_state, read_state
     }
 };
 
@@ -46,6 +44,12 @@ pub fn instantiate(
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
     // set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION);
+    let state = State {
+        donation_count: 0,
+        users: vec![],
+        donations: vec![]
+    };
+    update_state(deps.storage).save(&state)?;
     Ok(Response::default())
 }
 
@@ -90,6 +94,7 @@ fn send_donation(
     recipient: String, 
     message: String
 ) -> Result<Response, ContractError> {
+    let state = read_state(deps.storage).load()?;
     // Verify that there's a recipient
     if recipient.is_empty() {
         return Err(ContractError::EmptyUsername {})
@@ -121,6 +126,7 @@ fn send_donation(
 
     // Build out the donation message
     let donation = DonationInfo {
+        id: state.donation_count.clone(),
         sender: sender_user,
         recipient: recipient_user,
         amount: info.funds,
@@ -128,11 +134,7 @@ fn send_donation(
         timestamp: Some(env.block.time)
     };
 
-    // Update the donations and set the new donation's ID
-    let id = increment_donations(deps.storage)?;
-
-    update_donations(deps.storage, donation.clone(), id)?;
-
+    update_donations(deps.storage, donation.clone())?;
     let total_donation_amount = donation.amount.clone()[0].amount;
     let donation_fee = Decimal::percent(3) * donation.amount.clone()[0].amount;
     let recipient_donation = &coins((total_donation_amount - donation_fee).u128(), donation.amount.clone()[0].denom.clone());
@@ -153,7 +155,7 @@ fn send_donation(
     let attributes = vec![("sender_address", donation.sender.address.to_string()), ("sender_username", donation.sender.username.to_string()), 
                     ("recipient_address", donation.recipient.address.to_string()), ("recipient_username", donation.recipient.username.to_string()),
                     ("amount", donation.amount[0].amount.to_string()), ("message", donation.message), ("timestamp", env.block.time.to_string()),
-                    ("id", id.to_string()) ].into_iter();
+                    ("id", donation.id.to_string()) ].into_iter();
     let tx_messages = vec![recipient_bank_msg, fee_bank_msg].into_iter();
 
     Ok(Response::new().add_messages(tx_messages).add_attributes(attributes))
@@ -166,6 +168,7 @@ fn register_user(
     mut user: AlpineUser,
     username: String
 ) -> Result<Response, ContractError> {
+    let mut state = read_state(deps.storage).load()?;
     // Validate the username
     let valid_username = match validate_username(username.clone()) {
         Ok(u) => u,
@@ -185,7 +188,6 @@ fn register_user(
         false => return Err(ContractError::UserAlreadyExists {  } )
     };
 
-    let state = read_state(deps.storage).load()?;
 
     // Verify that the desired username isn't already taken
     // let searched_username = match USERNAMES.get(deps.storage, &valid_username.clone()) {
@@ -203,9 +205,9 @@ fn register_user(
     // Set the user's username, then save them to the contract
     user.username = searched_username.clone();
 
-    USERNAMES.insert(deps.storage, &searched_username, &user)?;
-    ADDRESSES.insert(deps.storage, &user.address.clone(), &user)?;
-    update_state(deps.storage);
+    state.users.append(&mut vec![user.clone()]);
+    update_state(deps.storage).save(&state);
+
     
     Ok(Response::new().add_attribute("username", user.username))
 }
