@@ -1,11 +1,39 @@
-use cosmwasm_std::{Addr, coins, Decimal, DepsMut, MessageInfo, Env, StdResult, Response, entry_point, ensure_eq, BankMsg};
-use cw2::{set_contract_version, get_contract_version};
+use cosmwasm_std::{
+    Addr,
+    coins,
+    Decimal,
+    DepsMut,
+    MessageInfo,
+    Env,
+    StdResult,
+    Response,
+    entry_point,
+    BankMsg
+};
+// use cw2::{set_contract_version, get_contract_version};
 
-use crate::{msg::{InstantiateMsg, MigrateMsg, ExecuteMsg}, error::ContractError, state::{AlpineUser, DonationInfo, increment_donations, find_alpine_username, update_donations, get_user_by_address, read_state, update_state}};
-#[cfg(not(feature = "library"))]
+use crate::{
+    msg::{
+        InstantiateMsg,
+        MigrateMsg,
+        ExecuteMsg
+    }, 
+    error::ContractError,
+    state::{
+        AlpineUser,
+        DonationInfo,
+        find_alpine_username,
+        update_donations,
+        get_user_by_address,
+        State, 
+        update_state, read_state
+    }
+};
+
+// #[cfg(not(feature = "library"))]
 // version info for migration info
-const CONTRACT_NAME: &str = "crates.io:alpine-pay";
-const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
+// const CONTRACT_NAME: &str = "crates.io:alpine-pay";
+// const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 #[entry_point]
 pub fn instantiate(
@@ -14,19 +42,24 @@ pub fn instantiate(
     _info: MessageInfo,
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
-    set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
+    // set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION);
+    let state = State {
+        donation_count: 0,
+        users: vec![],
+        donations: vec![]
+    };
+    update_state(deps.storage).save(&state)?;
     Ok(Response::default())
 }
 
 #[entry_point]
 pub fn migrate(
-    deps: DepsMut,
     _env: Env,
     _msg: MigrateMsg
-) -> StdResult<Response> {
-    let ver = get_contract_version(deps.storage)?;
-    ensure_eq!(ver.contract, CONTRACT_NAME, ContractError::IncorrectContractName { contract_name: String::from(CONTRACT_NAME) });
-    set_contract_version(deps.storage, ver.contract, ver.version.clone())?;
+) -> Result<Response, ContractError> {
+    // let ver = get_contract_version(deps.storage);
+    // ensure_eq!(ver.contract, CONTRACT_NAME, ContractError::IncorrectContractName { contract_name: String::from(CONTRACT_NAME) });
+    // set_contract_version(deps.storage, ver.contract, ver.version.clone())?;
 
     Ok(Response::default())
 }
@@ -37,7 +70,7 @@ pub fn execute(
     _env: Env,
     info: MessageInfo,
     msg: ExecuteMsg
-) -> StdResult<Response> {
+) -> Result<Response, ContractError> {
     match msg {
         ExecuteMsg::SendDonation { sender, recipient, message } => send_donation(deps, _env, info, sender, recipient, message),
         // With register we can authenticate the user here, whereas with SendDonation it's a bit more complex and done later
@@ -50,7 +83,6 @@ pub fn execute(
     }
 }
 
-// Send a donation to the designated user
 fn send_donation(
     deps: DepsMut, 
     env: Env, 
@@ -59,12 +91,11 @@ fn send_donation(
     recipient: String, 
     message: String
 ) -> Result<Response, ContractError> {
-    // Verify that there's a recipient
+    let state = read_state(deps.storage).load()?;
     if recipient.is_empty() {
         return Err(ContractError::EmptyUsername {})
     }
 
-    // Verify that funds are attached
     if info.funds.is_empty() || info.funds[0].amount.to_string() == String::from("0") {
         return Err(ContractError::NoDonation{})
     }
@@ -80,28 +111,22 @@ fn send_donation(
         return Err(ContractError::InvalidWalletAddress { address: sender_user.address.to_string() })
     }
 
-    // Validate that the donation message isn't too long
     if message.len() > 250 {
         return Err(ContractError::DonationMessageTooLong {  })
     }
 
-    // Find the recipient user by their username
     let recipient_user = find_alpine_username(deps.storage, recipient)?;
 
-    // Build out the donation message
     let donation = DonationInfo {
+        id: state.donation_count.clone(),
         sender: sender_user,
         recipient: recipient_user,
         amount: info.funds,
-        message: message,
+        message,
         timestamp: Some(env.block.time)
     };
 
-    // Update the donations and set the new donation's ID
-    let id = increment_donations(deps.storage)?;
-
-    update_donations(deps.storage, donation, id)?;
-
+    update_donations(deps.storage, donation.clone())?;
     let total_donation_amount = donation.amount.clone()[0].amount;
     let donation_fee = Decimal::percent(3) * donation.amount.clone()[0].amount;
     let recipient_donation = &coins((total_donation_amount - donation_fee).u128(), donation.amount.clone()[0].denom.clone());
@@ -122,7 +147,7 @@ fn send_donation(
     let attributes = vec![("sender_address", donation.sender.address.to_string()), ("sender_username", donation.sender.username.to_string()), 
                     ("recipient_address", donation.recipient.address.to_string()), ("recipient_username", donation.recipient.username.to_string()),
                     ("amount", donation.amount[0].amount.to_string()), ("message", donation.message), ("timestamp", env.block.time.to_string()),
-                    ("id", id.to_string()) ].into_iter();
+                    ("id", donation.id.to_string()) ].into_iter();
     let tx_messages = vec![recipient_bank_msg, fee_bank_msg].into_iter();
 
     Ok(Response::new().add_messages(tx_messages).add_attributes(attributes))
@@ -135,9 +160,10 @@ fn register_user(
     mut user: AlpineUser,
     username: String
 ) -> Result<Response, ContractError> {
-    // Validate the username
-    let valid_username = match validate_username(username.clone()) {
-        Ok(u) => u,
+    let mut state = read_state(deps.storage).load()?;
+    
+    match validate_username(username.clone()) {
+        Ok(_u) => (),
         Err(e) => return Err(e)
     };
 
@@ -154,35 +180,25 @@ fn register_user(
         false => return Err(ContractError::UserAlreadyExists {  } )
     };
 
-    let state = read_state(deps.storage).load()?;
-
-    // Verify that the desired username isn't already taken
-    let searched_username = match state.usernames.get(deps.storage, &valid_username.clone()) {
-        Ok(result) => match result {
-            Some(_) => Err(ContractError::UsernameNotAvailable { username: valid_username.clone() }),
-            None => Ok(valid_username.clone())
-        },
-        Err(e) => Err(ContractError::Std(e))
+    let searched_username = match find_alpine_username(deps.storage, username.clone()) {
+        Ok(_alpine_user) => Err(ContractError::UsernameNotAvailable { username: username.clone() }),
+        Err(_e) => Ok(username)
     }?;
 
-    // Set the user's username, then save them to the contract
-    user.username = searched_username;
+    user.username = searched_username.clone();
 
-    state.usernames.insert(deps.storage, &searched_username, &user)?;
-    state.addresses.insert(deps.storage, &user.address.clone(), &user)?;
-    update_state(state)?;
+    state.users.append(&mut vec![user.clone()]);
+    update_state(deps.storage).save(&state).unwrap();
+
     
     Ok(Response::new().add_attribute("username", user.username))
 }
 
-// Validate that the user's username is accepted
 fn validate_username(username: String) -> Result<String, ContractError> {
-    // Users can't register with an empty username.
     if username.is_empty() {
         return Err(ContractError::EmptyUsername {})
     }
 
-    // Users can't create a name with more than 32 characters
     if username.len() > 32 {
         return Err(ContractError::InvalidUsername { 
             username,
@@ -190,7 +206,6 @@ fn validate_username(username: String) -> Result<String, ContractError> {
         })
     }
 
-    // Verify that only alphanumeric characters, dashes, and underscores are used to mitigate the risk of injection attacks
     for c in username.chars() {
         if !(c.is_ascii_alphabetic() || c.is_numeric() || c == '-' || c == '_') {
             return Err(ContractError::InvalidUsername { 
