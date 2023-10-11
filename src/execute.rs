@@ -22,7 +22,6 @@ use crate::{
     state::{
         AlpineUser,
         DonationInfo,
-        // increment_donations,
         find_alpine_username,
         update_donations,
         get_user_by_address,
@@ -123,7 +122,7 @@ fn send_donation(
         sender: sender_user,
         recipient: recipient_user,
         amount: info.funds,
-        message: message,
+        message,
         timestamp: Some(env.block.time)
     };
 
