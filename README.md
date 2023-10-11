@@ -26,7 +26,7 @@ secretcli config node https://rpc.secret.express
 secretcli config chain-id secret-4    // todo: this is probably not the right id
 ```
 
-2. Navigate to the `contracts/alpine-pay` directory and build/optimize your code using
+2. Navigate to the project root directory and build/optimize your code using
 ```
 docker run --rm -v "$(pwd)":/contract \
      --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
@@ -42,11 +42,11 @@ secretcli query compute list-code
 ```
 4. Instantiate the contract so that it can actually be used.
 ```
-secretcli tx wasm instantiate $id '{}' --from <your-secret-wallet-name> --label "migrate to scrt" --gas-prices 0.025uscrt --gas auto --gas-adjustment 1.3 -y -b block --admin <your-secret-wallet-address>
+secretcli tx wasm instantiate $id '{}' --from <your-secret-wallet-name> --label "migrate to scrt" -y -b block 
 ```
 5. Grab the address of the contract.
 ```
-address=$(secretcli query wasm list-contract-by-code $id --output json | jq -r '.contracts[0]')
+address=$(secretcli query wasm list-contract-by-code $id
 ```
 ### Migration
 If you want to update the code of an Alpine Core Contract deployment, then you'll need to migrate it. Migration can only be done from the `admin` address defined in the instantiation section. Additionally, this section assumes that you still have the address of the contract saved in the `$address` environment variable on your terminal.
@@ -73,48 +73,47 @@ secretcli query wasm contract-history $address
 Alpine allows users to register a username associated with their wallet address. This feature makes it easy to communicate with other users, because there's no need to memorize or copy a complicated wallet address. 
 1. Verify that your desired username is available.
 ```
-secretcli query wasm contract-state smart $address '{"is_username_available":{"username":"<your-desired-username>"}}'
+secretcli q compute query <contract-address> '{"is_username_available":{"username":"<your-desired-username>"}}'
 ```
 A username which is already taken should return `is_available: false`
 
 2. Register your user.
 ```
-secretcli tx wasm execute $address '{"save_username":{"user":{"address":"<your-secret-wallet-address>", "username":""}, "username":"<your-desired-username>"}}' \
-    --from <your-secret-wallet-name> \
-    --gas auto --gas-adjustment 1.3 --gas-prices 0.1uscrt -b block
+secretcli tx wasm execute $address '{"register_user":{"user":{"address":"<your-secret-wallet-address>", "username":""}, "username":"<your-desired-username>"}}' \
+    --from <your-secret-wallet-name> -b block
 ```
 3. Verify that registration was successful.
 ```
-secretcli query wasm contract-state smart $address '{"get_user_by_name": {"username":"<your-chosen-username>"}}'
+secretcli q compute query $address '{"get_user_by_name": {"username":"<your-chosen-username>"}}'
 ```
 The output of this should return your address and chosen username.
 ### Send a Donation
 The primary functionality of the Core Contract from the perspective of most users is sending donations. This functionality assumes that there are at least two users registered, as you can't send a donation to yourself.
 1. Get a list of all users so that you can find who you want to send a donation to.
 ```
-secretcli query wasm contract-state smart $address '{"get_all_users": { }}'
+secretcli q compute query $address '{"get_all_users": { }}'
 ```
 2. Find the username of the user that you want to send the user to. Then send them a donation.
 ```
-secretcli tx wasm execute $address '{"send_donation":{"sender":"<your-username>", "recipient":"<recipient-username>", "message":"<your-message-text>"}}' --from <your-secret-wallet-name> --amount <your-desired-donation-amount> --gas auto --gas-adjustment 1.3 --gas-prices 0.1uscrt -b block
+secretcli tx wasm execute $address '{"send_donation":{"sender":"<your-username>", "recipient":"<recipient-username>", "message":"<your-message-text>"}}' --from <your-secret-wallet-name> --amount <your-desired-donation-amount> -b block
 ```
 3. Verify that your donation was sent successfully
 ```
-secretcli query wasm contract-state smart $address '{"get_sent_donations":{"sender":"<your-username>"}}'
+secretcli q compute query $address '{"get_sent_donations":{"sender":"<your-username>"}}'
 ```
 ### Get a List of Donations Sent to You
 From the perspective of a content creator, the biggest function in the Core Contract is viewing the donations that they've received. This assumes that you're already registered.
 1. Query all of the donations sent to you
 ```
-secretcli query wasm contract-state smart $address '{"get_received_donations":{"recipient":"<your-username>"}}'
+secretcli q compute query $address '{"get_received_donations":{"recipient":"<your-username>"}}'
 ```
 ### Supporting Functionality
 In addition to the main functions of the contract, there are a few other functions which support our web application. These typically wouldn't be used if you're using the CLI, but they could be interesting regardless.
 - Obtain a count of all donations sent through the Core Contract.
 ```
-secretcli query wasm contract-state smart $address '{"get_num_donations":{ }}'
+secretcli q compute query $address '{"get_num_donations":{ }}'
 ```
 - Get a user by their wallet address
 ```
-secretcli query wasm contract-state smart $address '{"get_user_by_address": {"username":"<user-secret-wallet-address>"}}'
+secretcli q compute query $address '{"get_user_by_address": {"username":"<user-secret-wallet-address>"}}'
 ```
