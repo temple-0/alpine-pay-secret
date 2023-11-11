@@ -935,7 +935,7 @@ mod integration_tests {
         instantiate(deps.as_mut(), mock_env(), info, msg).unwrap();
 
         let msg = MigrateMsg {};
-        let res = migrate(mock_env(), msg).unwrap();
+        let res = migrate(deps.as_mut(), mock_env(), msg).unwrap();
         assert_eq!(0, res.messages.len())
     }
 
