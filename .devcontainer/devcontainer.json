@@ -8,4 +8,5 @@
         "--network=host",
     ],
     "postCreateCommand": ".devcontainer/post_install.sh",
+    "remoteUser": "root"
 }
