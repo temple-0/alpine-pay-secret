@@ -97,9 +97,44 @@ secretcli q compute query $address '{"get_all_users": { }}'
 ```
 secretcli tx wasm execute $address '{"send_donation":{"sender":"<your-username>", "recipient":"<recipient-username>", "message":"<your-message-text>"}}' --from <your-secret-wallet-name> --amount <your-desired-donation-amount> -b block
 ```
-3. Verify that your donation was sent successfully
+### Verify Send Success
+1. First, generate a document to sign which conforms to SNIP-24 standards
 ```
-secretcli q compute query $address '{"get_sent_donations":{"sender":"<your-username>"}}'
+ echo '{
+    "chain_id": "<your-chain-id>",
+    "account_number": "0",
+    "sequence": "0",
+    "msgs": [
+        {
+            "type": "query_permit",
+            "value": {
+                "permit_name": "test",
+                "allowed_tokens": [
+                    "<contract-address>"
+                ],
+                "permissions": ["balance"]
+            }
+        }
+    ],
+    "fee": {
+        "amount": [
+            {
+                "denom": "uscrt",
+                "amount": "0"
+            }
+        ],
+        "gas": "1"
+    },
+    "memo": ""
+}' > ./permit.json
+```
+2. Generate a signed document 
+```
+secretd tx sign-doc ./permit.json --from yo > ./sig.json
+```
+3. Verify that your donation was sent successfully, wrapping the actual donation query in a permit query
+```
+secretcli q compute query $address '{"with_permit":{"query":{"get_sent_donations":{"sender":"<your-username>"}},"permit":{"params":{"permit_name":"test","allowed_tokens":[<your-contract-address>],"chain_id":"<your-chain-id>","permissions":["balance"]},"signature":<entirety-of-sig.json-file>}}}'
 ```
 ### Get a List of Donations Sent to You
 From the perspective of a content creator, the biggest function in the Core Contract is viewing the donations that they've received. This assumes that you're already registered.

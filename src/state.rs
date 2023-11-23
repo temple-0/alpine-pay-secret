@@ -11,7 +11,8 @@ const STATE_KEY: &[u8] = b"state";
 pub struct State{
     pub donation_count: u64,
     pub users: Vec<AlpineUser>,
-    pub donations: Vec<DonationInfo>
+    pub donations: Vec<DonationInfo>,
+    pub contract_address: String
 }
 
 pub fn update_state(storage: &mut dyn Storage) -> Singleton<State> {

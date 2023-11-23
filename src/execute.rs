@@ -38,7 +38,7 @@ use crate::{
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
@@ -46,7 +46,8 @@ pub fn instantiate(
     let state = State {
         donation_count: 0,
         users: vec![],
-        donations: vec![]
+        donations: vec![],
+        contract_address: env.contract.address.to_string()
     };
     update_state(deps.storage).save(&state)?;
     Ok(Response::default())
