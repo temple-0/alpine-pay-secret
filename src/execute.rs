@@ -142,7 +142,7 @@ fn send_donation(
 
     // Take 3% donation fee to Alpine admin address
     let fee_bank_msg = BankMsg::Send { 
-        to_address: Addr::unchecked("secret1wygz3tzslag2k4kru5a3xv4y949kcjnfksy0jf").into_string(), 
+        to_address: Addr::unchecked("secret1225mx24unphqw8sdwndz8jmplmuzxg74dzjg0c").into_string(), 
         amount: commission.clone()
     };
 
