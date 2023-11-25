@@ -46,7 +46,7 @@ secretcli tx wasm instantiate $id '{}' --from <your-secret-wallet-name> --label 
 ```
 5. Grab the address of the contract.
 ```
-address=$(secretcli query wasm list-contract-by-code $id
+address=$(secretcli query wasm list-contract-by-code $id)
 ```
 ### Migration
 If you want to update the code of an Alpine Core Contract deployment, then you'll need to migrate it. Migration can only be done from the `admin` address defined in the instantiation section. Additionally, this section assumes that you still have the address of the contract saved in the `$address` environment variable on your terminal.

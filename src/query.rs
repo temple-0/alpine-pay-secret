@@ -8,7 +8,7 @@ use cosmwasm_std::{
     to_binary,
     Addr
 };
-use secret_toolkit_permit::{Permit, validate, pubkey_to_account};
+use secret_toolkit_permit::{Permit, validate};
 
 use crate::msg::{
     QueryMsg, 
