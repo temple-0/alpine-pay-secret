@@ -65,8 +65,12 @@ fn get_donation_count(deps: Deps) -> StdResult<DonationCountResponse> {
 fn get_sent_donations(deps: Deps, sender: String, signer_address: CanonicalAddr) -> StdResult<MultiDonationResponse> {
     let state = read_state(deps.storage).load()?;
     let sender_user = find_alpine_username(deps.storage, sender).unwrap();
-    //Validate that permit signer is the same as the queried address
-    if signer_address != deps.api.addr_canonicalize(sender_user.address.as_str())? { return Err(StdError::GenericErr { msg: "Address mismatch".to_string() }) }
+
+    // Validate that permit signer is the same as the queried address
+    if signer_address != deps.api.addr_canonicalize(sender_user.address.as_str())? {
+        return Err(StdError::GenericErr { msg: "Address mismatch".to_string() });
+    }
+
     let mut sent_donations: Vec<DonationInfo> = vec![];
 
     for donation in state.donations {
@@ -81,8 +85,12 @@ fn get_sent_donations(deps: Deps, sender: String, signer_address: CanonicalAddr)
 fn get_received_donations(deps: Deps, recipient: String, signer_address: CanonicalAddr) -> StdResult<MultiDonationResponse> {
     let state = read_state(deps.storage).load()?;
     let recipient_user = find_alpine_username(deps.storage, recipient).unwrap();
-    //Validate that permit signer is the same as the queried address
-    if signer_address != deps.api.addr_canonicalize(recipient_user.address.as_str())? { return Err(StdError::GenericErr { msg: "Address mismatch".to_string() }) }
+
+    // Validate that permit signer is the same as the queried address
+    if signer_address != deps.api.addr_canonicalize(recipient_user.address.as_str())? {
+        return Err(StdError::GenericErr { msg: "Address mismatch".to_string() });
+    }
+
     let mut received_donations: Vec<DonationInfo> = vec![];
 
     for donation in state.donations {
