@@ -488,7 +488,7 @@ mod alpine_user_tests {
 #[cfg(test)]
 mod donation_tests {
     use cosmwasm_std::testing::{mock_dependencies, mock_env, mock_info};
-    use cosmwasm_std::{from_binary, coins, MessageInfo, Addr, DepsMut, Binary, Deps};
+    use cosmwasm_std::{from_binary, coins, MessageInfo, Addr, DepsMut, Binary, Deps, StdError};
     use secret_toolkit_permit::{Permit, PermitParams, TokenPermissions, PermitSignature, PubKey, validate};
 
     use crate::execute::{execute, instantiate};
@@ -580,7 +580,7 @@ mod donation_tests {
         }
     }
     
-    fn query_with_bad_permit(deps: Deps, query: QueryWithPermitMsg) -> MultiDonationResponse {
+    fn query_with_bad_permit(deps: Deps, query: QueryWithPermitMsg) -> StdError {
         let permit = Permit {
             params: PermitParams { 
                 allowed_tokens: vec![CONTRACT_ADDRESS.to_string()], 
@@ -605,14 +605,7 @@ mod donation_tests {
             &permit,
             state.contract_address, 
             None
-        ).unwrap_err();
-
-        // Don't grab the sender's address here because it won't canonicalize right in tests
-        // Because of that, testing that the user address is validated correctly requires integration tests
-        match query {
-            QueryWithPermitMsg::GetReceivedDonations { recipient } => get_received_donations(deps, recipient),
-            QueryWithPermitMsg::GetSentDonations { sender } => get_sent_donations(deps, sender)
-        }
+        ).unwrap_err()
     }
 
     // Validate that instantiation is succesful
@@ -826,58 +819,59 @@ mod donation_tests {
      // Obtain a list of multiple sent donations with bad permit. Should return failure.
      #[test]
      fn get_multiple_sent_donations_bad_permit() {
-         let mut deps = mock_dependencies();
-         setup_contract(deps.as_mut());
-         let mut state = read_state(&deps.storage).load().unwrap();
-         let donation_message: String = String::from("henlo :)");
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
+        let donation_message: String = String::from("henlo :)");
 
-         let alpine_user_a: AlpineUser = AlpineUser::new(
-             deps.as_ref(),
-             Addr::unchecked(ADDRESS),
-             Some(String::from("USER_A"))
-         ).unwrap();
-         let alpine_user_b: AlpineUser = AlpineUser::new(
-             deps.as_ref(),
-             Addr::unchecked("secret1ayjl4cm8e2nrnhstx92cr6uuljnumjxgkncs7x"),
-             Some(String::from("USER_B")) 
-         ).unwrap();
-         let alpine_user_c: AlpineUser = AlpineUser::new(
-             deps.as_ref(),
-             Addr::unchecked("secret1hrm44y69kzdjqq2tn6hh9cq3tzmfsa9rfgv7d9"),
-             Some(String::from("USER_C"))
-         ).unwrap();
-         let alpine_user_d: AlpineUser = AlpineUser::new(
-             deps.as_ref(),
-             Addr::unchecked("secret1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
-             Some(String::from("USER_D"))
-         ).unwrap();
+        let alpine_user_a: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked(ADDRESS),
+            Some(String::from("USER_A"))
+        ).unwrap();
+        let alpine_user_b: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ayjl4cm8e2nrnhstx92cr6uuljnumjxgkncs7x"),
+            Some(String::from("USER_B")) 
+        ).unwrap();
+        let alpine_user_c: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1hrm44y69kzdjqq2tn6hh9cq3tzmfsa9rfgv7d9"),
+            Some(String::from("USER_C"))
+        ).unwrap();
+        let alpine_user_d: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
+            Some(String::from("USER_D"))
+        ).unwrap();
 
-         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
-         state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
-         update_state(&mut deps.storage).save(&state).unwrap();
- 
-         let msg = ExecuteMsg::SendDonation { 
-             message: donation_message.clone(), 
-             sender: alpine_user_a.username.clone(),
-             recipient: alpine_user_b.username
-         };
-         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
- 
-         let msg = ExecuteMsg::SendDonation { 
-             message: donation_message.clone(), 
-             sender: alpine_user_a.username.clone(),
-             recipient: alpine_user_c.username
-         };
-         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
- 
-         let msg = ExecuteMsg::SendDonation { 
-             message: donation_message.clone(), 
-             sender: alpine_user_a.username.clone(),
-             recipient: alpine_user_d.username
-         };
-         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
-         
-         query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetSentDonations { sender: alpine_user_a.username.clone() });
+        let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone(), 
+            sender: alpine_user_a.username.clone(),
+            recipient: alpine_user_b.username
+        };
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone(), 
+            sender: alpine_user_a.username.clone(),
+            recipient: alpine_user_c.username
+        };
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone(), 
+            sender: alpine_user_a.username.clone(),
+            recipient: alpine_user_d.username
+        };
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+        
+        let err = query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetSentDonations { sender: alpine_user_a.username.clone() });
+        assert_eq!(err, StdError::GenericErr { msg: "Failed to verify signatures for the given permit".to_owned() })
      }
 
     // Obtain a list of multiple sent donations and validate that they're sorted in the correct order. Should return success.
@@ -1057,7 +1051,8 @@ mod donation_tests {
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         
-        query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetReceivedDonations { recipient: alpine_user_a.username.clone() });
+        let err = query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetReceivedDonations { recipient: alpine_user_a.username.clone() });
+        assert_eq!(err, StdError::GenericErr { msg: "Failed to verify signatures for the given permit".to_owned() })
     }
 
     // Obtain a list of multiple received donations and validate that they're sorted in the correct order. Should return success.
