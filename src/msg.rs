@@ -1,4 +1,5 @@
 use schemars::JsonSchema;
+use secret_toolkit_permit::Permit;
 use serde::{Deserialize, Serialize};
 use crate::state::{DonationInfo, AlpineUser};
 use cosmwasm_std::Addr;
@@ -18,14 +19,20 @@ pub enum ExecuteMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
 #[serde(rename_all = "snake_case")]
-pub enum QueryMsg {
+pub enum QueryWithPermitMsg {
     GetSentDonations{ sender: String },
     GetReceivedDonations { recipient: String },
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum QueryMsg {
     GetDonationCount {  },
     IsUsernameAvailable { username: String },
     GetAllUsers { },
     GetUserByAddr { address: Addr },
-    GetUserByName { username: String }
+    GetUserByName { username: String },
+    WithPermit { permit: Permit, query: QueryWithPermitMsg }
 }
 
 // Return a list of donation IDs mapped to the data stored in the donation

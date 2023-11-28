@@ -1,4 +1,4 @@
-use cosmwasm_std::{entry_point, StdError};
+use cosmwasm_std::{entry_point, StdError, CanonicalAddr};
 #[cfg(not(feature = "library"))]
 use cosmwasm_std::{
     Binary, 
@@ -8,6 +8,7 @@ use cosmwasm_std::{
     to_binary,
     Addr
 };
+use secret_toolkit_permit::{Permit, validate};
 
 use crate::msg::{
     QueryMsg, 
@@ -15,7 +16,7 @@ use crate::msg::{
     UsernameAvailableResponse,
     MultiUserResponse,
     AlpineUserResponse, 
-    DonationCountResponse
+    DonationCountResponse, QueryWithPermitMsg
 };
 use crate::state::{ 
     AlpineUser, 
@@ -28,13 +29,31 @@ use crate::state::{
 #[entry_point]
 pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
     match msg {
-        QueryMsg::GetSentDonations { sender } => to_binary(&get_sent_donations(deps, sender)?),
-        QueryMsg::GetReceivedDonations { recipient } => to_binary(&get_received_donations(deps, recipient)?),
         QueryMsg::GetDonationCount {  } => to_binary(&get_donation_count(deps)?),
         QueryMsg::IsUsernameAvailable { username } => to_binary(&is_username_available(deps, username)?),
         QueryMsg::GetAllUsers {  } => to_binary(&get_all_users(deps)?),
         QueryMsg::GetUserByAddr { address } => to_binary(&get_user_by_addr(deps, address)?),
-        QueryMsg::GetUserByName { username } => to_binary(&get_user_by_name(deps, username)?)
+        QueryMsg::GetUserByName { username } => to_binary(&get_user_by_name(deps, username)?),
+        QueryMsg::WithPermit { permit, query } => to_binary(&permit_query(deps, permit, query)?)
+    }
+}
+
+fn permit_query(deps: Deps, permit: Permit, query: QueryWithPermitMsg) -> StdResult<MultiDonationResponse> {
+    // Validate permit
+    let state = read_state(deps.storage).load()?;
+    validate(
+        deps,
+        "revoked_permits",
+        &permit,
+        state.contract_address, 
+        None
+    )?;
+    let public_key = permit.signature.pub_key;
+    let signer_address = public_key.canonical_address();
+
+    match query {
+        QueryWithPermitMsg::GetReceivedDonations { recipient } => get_received_donations(deps, recipient, signer_address),
+        QueryWithPermitMsg::GetSentDonations { sender } => get_sent_donations(deps, sender, signer_address)
     }
 }
 
@@ -43,9 +62,15 @@ fn get_donation_count(deps: Deps) -> StdResult<DonationCountResponse> {
     Ok(DonationCountResponse { count })
 }
 
-fn get_sent_donations(deps: Deps, sender: String) -> StdResult<MultiDonationResponse> {
+fn get_sent_donations(deps: Deps, sender: String, signer_address: CanonicalAddr) -> StdResult<MultiDonationResponse> {
     let state = read_state(deps.storage).load()?;
     let sender_user = find_alpine_username(deps.storage, sender).unwrap();
+
+    // Validate that permit signer is the same as the queried address
+    if signer_address != deps.api.addr_canonicalize(sender_user.address.as_str())? {
+        return Err(StdError::GenericErr { msg: "Address mismatch".to_string() });
+    }
+
     let mut sent_donations: Vec<DonationInfo> = vec![];
 
     for donation in state.donations {
@@ -57,9 +82,15 @@ fn get_sent_donations(deps: Deps, sender: String) -> StdResult<MultiDonationResp
     Ok(MultiDonationResponse { donations: sent_donations })
 }
 
-fn get_received_donations(deps: Deps, recipient: String) -> StdResult<MultiDonationResponse> {
+fn get_received_donations(deps: Deps, recipient: String, signer_address: CanonicalAddr) -> StdResult<MultiDonationResponse> {
     let state = read_state(deps.storage).load()?;
     let recipient_user = find_alpine_username(deps.storage, recipient).unwrap();
+
+    // Validate that permit signer is the same as the queried address
+    if signer_address != deps.api.addr_canonicalize(recipient_user.address.as_str())? {
+        return Err(StdError::GenericErr { msg: "Address mismatch".to_string() });
+    }
+
     let mut received_donations: Vec<DonationInfo> = vec![];
 
     for donation in state.donations {

@@ -38,7 +38,7 @@ use crate::{
 #[entry_point]
 pub fn instantiate(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     _info: MessageInfo,
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
@@ -46,7 +46,8 @@ pub fn instantiate(
     let state = State {
         donation_count: 0,
         users: vec![],
-        donations: vec![]
+        donations: vec![],
+        contract_address: env.contract.address.to_string()
     };
     update_state(deps.storage).save(&state)?;
     Ok(Response::default())
@@ -141,7 +142,7 @@ fn send_donation(
 
     // Take 3% donation fee to Alpine admin address
     let fee_bank_msg = BankMsg::Send { 
-        to_address: Addr::unchecked("osmo1zw5337y7a7ajj2jz4t0teyzcy5dup5k8wjz88a").into_string(), 
+        to_address: Addr::unchecked("secret1225mx24unphqw8sdwndz8jmplmuzxg74dzjg0c").into_string(), 
         amount: commission.clone()
     };
 
