@@ -14,7 +14,8 @@ pub struct MigrateMsg { }
 #[serde(rename_all = "snake_case")]
 pub enum ExecuteMsg {
     SendDonation { sender: String, recipient: String, message: String },
-    RegisterUser { user: AlpineUser, username: String }
+    RegisterUser { user: AlpineUser, username: String },
+    ClearContract {  }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, JsonSchema)]
