@@ -22,8 +22,10 @@ All usage of the Alpine Pay Core Contract assumes that you have a proper develop
 The first step of using the Alpine Pay Core Contract is to deploy it and instantiate it. The instantiation message for this contract takes no arguments.
 1. Set the client configuration for Secret by running:
 ```
+# secretcli config node https://rpc.pulsar.scrttestnet.com
+# secretcli config chain-id pulsar-3
 secretcli config node https://rpc.secret.express
-secretcli config chain-id secret-4    // todo: this is probably not the right id
+secretcli config chain-id secret-4  
 ```
 
 2. Navigate to the project root directory and build/optimize your code using
@@ -34,7 +36,7 @@ docker run --rm -v "$(pwd)":/contract \
 ```
 3. Next, store your compiled code on the testnet blockchain and save the id of your code in an environment variable to use later.
 ```
-secretcli tx compute store contract.wasm.gz --gas auto --gas-adjustment 1.3 --from <your-wallet-name>
+secretcli tx compute store contract.wasm.gz -y --gas auto --gas-adjustment 1.3 --from <your-wallet-name> 
 ```
 4. Verify success by listing the code and verifying the last code ID was created by your wallet address
 ```

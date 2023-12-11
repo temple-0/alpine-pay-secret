@@ -1,3 +1,7 @@
+use cosmwasm_std::testing::mock_env;
+
+use crate::{msg::ExecuteMsg, execute::execute};
+
 
 #[cfg(test)]
 mod alpine_user_tests {
@@ -1121,7 +1125,132 @@ mod donation_tests {
         assert_eq!(donation_message.clone() + "2", received_donations.donations[1].message);
         assert_eq!(donation_message.clone() + "3", received_donations.donations[2].message);
     }
+    #[test]
+    fn clear_contract_unauthorized() {
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
+        let donation_message: String = String::from("henlo :)");
+
+        let alpine_user_a: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
+            Some(String::from("USER_A"))
+        ).unwrap();
+        let alpine_user_b: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ayjl4cm8e2nrnhstx92cr6uuljnumjxgkncs7x"),
+            Some(String::from("USER_B")) 
+        ).unwrap();
+        let alpine_user_c: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1hrm44y69kzdjqq2tn6hh9cq3tzmfsa9rfgv7d9"),
+            Some(String::from("USER_C"))
+        ).unwrap();
+        let alpine_user_d: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
+            Some(String::from("USER_D"))
+        ).unwrap();
+
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "1", 
+            sender: alpine_user_b.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_b.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "2", 
+            sender: alpine_user_c.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_c.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "3", 
+            sender: alpine_user_c.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_c.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let msg = ExecuteMsg::ClearContract {  };
+        let res = execute(deps.as_mut(), mock_env(), info, msg).unwrap_err();
+        assert_eq!(res, ContractError::Unauthorized {  });
+    }
+    // Clear the smart contract
+    #[test]
+    fn clear_contract() {
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
+        let donation_message: String = String::from("henlo :)");
+
+        let alpine_user_a: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1409ep5zmpxyrh5jpxc8tcw4c0wppkvlqpya9jh"),
+            Some(String::from("USER_A"))
+        ).unwrap();
+        let alpine_user_b: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ayjl4cm8e2nrnhstx92cr6uuljnumjxgkncs7x"),
+            Some(String::from("USER_B")) 
+        ).unwrap();
+        let alpine_user_c: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1hrm44y69kzdjqq2tn6hh9cq3tzmfsa9rfgv7d9"),
+            Some(String::from("USER_C"))
+        ).unwrap();
+        let alpine_user_d: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ysehn88p24d7769j4vj07hyndkjj7pccz3j3c9"),
+            Some(String::from("USER_D"))
+        ).unwrap();
+
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone(), alpine_user_c.clone(), alpine_user_d.clone()]);
+        update_state(&mut deps.storage).save(&state).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "1", 
+            sender: alpine_user_b.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_b.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "2", 
+            sender: alpine_user_c.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_c.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let msg = ExecuteMsg::SendDonation { 
+            message: donation_message.clone() + "3", 
+            sender: alpine_user_c.username.clone(),
+            recipient: alpine_user_a.username.clone()
+        };
+        let info = mock_info(alpine_user_c.address.as_str(), &coins(1000, "earth"));
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
+
+        let msg = ExecuteMsg::ClearContract {  };
+        let info = mock_info("creator", &[]);
+        execute(deps.as_mut(), mock_env(), info, msg).unwrap();
+        let state = read_state(&deps.storage).load().unwrap();
+        assert_eq!(state.donation_count, 0);
+        assert_eq!(state.donations.len(), 0);
+        assert_eq!(state.users.len(), 0);
+    }  
 }
+
+
 
 // Define a set of integration tests that use our entry points instead of internal calls
 #[cfg(test)]

@@ -12,7 +12,8 @@ pub struct State{
     pub donation_count: u64,
     pub users: Vec<AlpineUser>,
     pub donations: Vec<DonationInfo>,
-    pub contract_address: String
+    pub contract_address: String,
+    pub owner: String
 }
 
 pub fn update_state(storage: &mut dyn Storage) -> Singleton<State> {
@@ -89,6 +90,15 @@ pub struct DonationInfo {
 
 impl DonationInfo {
 
+}
+
+pub fn clear_data(storage: &mut dyn Storage) -> Result<bool, ContractError> {
+    let mut state = read_state(storage).load()?;
+    state.donations = vec![];
+    state.users = vec![];
+    state.donation_count = 0;
+    update_state(storage).save(&state)?;
+    Ok(true)
 }
 
 pub fn update_donations(storage: &mut dyn Storage, donation: DonationInfo) -> Result<DonationInfo, ContractError> {

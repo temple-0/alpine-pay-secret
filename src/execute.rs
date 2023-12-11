@@ -26,7 +26,7 @@ use crate::{
         update_donations,
         get_user_by_address,
         State, 
-        update_state, read_state
+        update_state, read_state, clear_data
     }
 };
 
@@ -39,7 +39,7 @@ use crate::{
 pub fn instantiate(
     deps: DepsMut,
     env: Env,
-    _info: MessageInfo,
+    info: MessageInfo,
     _msg: InstantiateMsg
 ) -> StdResult<Response> {
     // set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION);
@@ -47,7 +47,8 @@ pub fn instantiate(
         donation_count: 0,
         users: vec![],
         donations: vec![],
-        contract_address: env.contract.address.to_string()
+        contract_address: env.contract.address.to_string(),
+        owner: info.sender.clone().to_string()
     };
     update_state(deps.storage).save(&state)?;
     Ok(Response::default())
@@ -69,20 +70,33 @@ pub fn migrate(
 #[entry_point]
 pub fn execute(
     deps: DepsMut,
-    _env: Env,
+    env: Env,
     info: MessageInfo,
     msg: ExecuteMsg
 ) -> Result<Response, ContractError> {
     match msg {
-        ExecuteMsg::SendDonation { sender, recipient, message } => send_donation(deps, _env, info, sender, recipient, message),
+        ExecuteMsg::SendDonation { sender, recipient, message } => send_donation(deps, env, info, sender, recipient, message),
         // With register we can authenticate the user here, whereas with SendDonation it's a bit more complex and done later
         ExecuteMsg::RegisterUser { user, username } => {
             if info.sender != user.address {
                 return Err(ContractError::InvalidWalletAddress { address: user.address.to_string() })
             }
-            register_user(deps, _env, user, username)
-        }
+            register_user(deps, env, user, username)
+        },
+        ExecuteMsg::ClearContract {  } => clear_contract(deps, info)
     }
+}
+
+fn clear_contract(
+    deps: DepsMut,
+    info: MessageInfo
+) -> Result<Response, ContractError> {
+    let state = read_state(deps.storage).load()?;
+    if info.sender.clone().to_string() != state.owner {
+        return Err(ContractError::Unauthorized {  })
+    }
+    clear_data(deps.storage)?;
+    Ok(Response::default())
 }
 
 fn send_donation(
