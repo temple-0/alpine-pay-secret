@@ -580,7 +580,7 @@ mod donation_tests {
         }
     }
     
-    fn query_with_bad_permit(deps: Deps, query: QueryWithPermitMsg) -> StdError {
+    fn query_with_bad_permit(deps: Deps) -> StdError {
         let permit = Permit {
             params: PermitParams { 
                 allowed_tokens: vec![CONTRACT_ADDRESS.to_string()], 
@@ -753,6 +753,46 @@ mod donation_tests {
         assert_eq!(_res, ContractError::DonationMessageTooLong {  });
     }
 
+    // Send anonymous donation and validate username is empty. Should return success.
+    #[test]
+    fn send_anonymous_donation() {
+        let mut deps = mock_dependencies();
+        setup_contract(deps.as_mut());
+        let mut state = read_state(&deps.storage).load().unwrap();
+        let donation_message: String = String::from("henlo :)");
+
+        let alpine_user_a: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked(ADDRESS),
+            None
+        ).unwrap();
+        let alpine_user_b: AlpineUser = AlpineUser::new(
+            deps.as_ref(),
+            Addr::unchecked("secret1ayjl4cm8e2nrnhstx92cr6uuljnumjxgkncs7x"),
+            Some(String::from("USER_B"))
+        ).unwrap();
+
+        let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
+        state.users.append(&mut vec![alpine_user_a.clone(), alpine_user_b.clone()]);
+        update_state(&mut deps.storage).save(&state).unwrap();
+
+        let msg = ExecuteMsg::SendDonation {
+            message: donation_message.clone(),
+            sender: alpine_user_a.username.clone(),
+            recipient: alpine_user_b.username.clone()
+        };
+        let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg);
+
+        let received_donations: MultiDonationResponse = query_with_permit(
+            deps.as_ref(),
+            QueryWithPermitMsg::GetReceivedDonations {
+                recipient: alpine_user_b.username.clone()
+            }
+        );
+
+        assert!(received_donations.donations[0].sender.username.is_empty());
+    }
+
     // Obtain a list of multiple sent donations and validate length. Should return success.
     #[test]
     fn get_multiple_sent_donations() {
@@ -870,7 +910,7 @@ mod donation_tests {
         };
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         
-        let err = query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetSentDonations { sender: alpine_user_a.username.clone() });
+        let err = query_with_bad_permit(deps.as_ref());
         assert_eq!(err, StdError::GenericErr { msg: "Failed to verify signatures for the given permit".to_owned() })
      }
 
@@ -1051,7 +1091,7 @@ mod donation_tests {
         let info = mock_info(alpine_user_a.address.as_str(), &coins(1000, "earth"));
         let _res = execute(deps.as_mut(), mock_env(), info.clone(), msg).unwrap();
         
-        let err = query_with_bad_permit(deps.as_ref(), QueryWithPermitMsg::GetReceivedDonations { recipient: alpine_user_a.username.clone() });
+        let err = query_with_bad_permit(deps.as_ref());
         assert_eq!(err, StdError::GenericErr { msg: "Failed to verify signatures for the given permit".to_owned() })
     }
 
