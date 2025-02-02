@@ -40,15 +40,15 @@ secretcli tx compute store contract.wasm.gz -y --gas auto --gas-adjustment 1.3 -
 ```
 4. Verify success by listing the code and verifying the last code ID was created by your wallet address
 ```
-secretcli query compute list-code
+secretcli query compute query list-code
 ```
 4. Instantiate the contract so that it can actually be used.
 ```
-secretcli tx wasm instantiate $id '{}' --from <your-secret-wallet-name> --label "migrate to scrt" -y -b block 
+secretcli tx compute instantiate $id '{}' --from <your-secret-wallet-name> --label "migrate to scrt" -y -b block 
 ```
 5. Grab the address of the contract.
 ```
-address=$(secretcli query wasm list-contract-by-code $id)
+address=$(secretcli query compute query list-contract-by-code $id)
 ```
 ### Migration
 If you want to update the code of an Alpine Core Contract deployment, then you'll need to migrate it. Migration can only be done from the `admin` address defined in the instantiation section. Additionally, this section assumes that you still have the address of the contract saved in the `$address` environment variable on your terminal.
@@ -61,15 +61,15 @@ docker run --rm -v "$(pwd)":/contract \
 ```
 2. Next, store your compiled code on the testnet blockchain and save the id of your code in an environment variable to use later.
 ```
-id=$(secretcli tx wasm store artifacts/alpine_pay.wasm  --from <your-secret-wallet-name> --gas-prices 0.1uscrt --gas auto --gas-adjustment 1.3 -y --output json -b block | jq -r '.logs[0].events[-1].attributes[1].value')
+id=$(secretcli tx compute store artifacts/alpine_pay.wasm  --from <your-secret-wallet-name> --gas-prices 0.1uscrt --gas auto --gas-adjustment 1.3 -y --output json -b block | jq -r '.logs[0].events[-1].attributes[1].value')
 ```
 3. Migrate the contract address to the new code ID.
 ```
-secretcli tx wasm migrate $address $id '{ }' --from <your-secret-wallet-name> --gas-prices 0.1uscrt --gas-adjustment 1.3 --gas auto -b block -y
+secretcli tx compute migrate $address $id '{ }' --from <your-secret-wallet-name> --gas-prices 0.1uscrt --gas-adjustment 1.3 --gas auto -b block -y
 ```
 4. To verify that the transaction was successful, you can run the following command.
 ```
-secretcli query wasm contract-history $address
+secretcli query compute query contract-history $address
 ```
 ### Register a User
 Alpine allows users to register a username associated with their wallet address. This feature makes it easy to communicate with other users, because there's no need to memorize or copy a complicated wallet address. 
@@ -81,7 +81,7 @@ A username which is already taken should return `is_available: false`
 
 2. Register your user.
 ```
-secretcli tx wasm execute $address '{"register_user":{"user":{"address":"<your-secret-wallet-address>", "username":""}, "username":"<your-desired-username>"}}' \
+secretcli tx compute execute $address '{"register_user":{"user":{"address":"<your-secret-wallet-address>", "username":""}, "username":"<your-desired-username>"}}' \
     --from <your-secret-wallet-name> -b block
 ```
 3. Verify that registration was successful.
@@ -97,7 +97,7 @@ secretcli q compute query $address '{"get_all_users": { }}'
 ```
 2. Find the username of the user that you want to send the user to. Then send them a donation.
 ```
-secretcli tx wasm execute $address '{"send_donation":{"sender":"<your-username>", "recipient":"<recipient-username>", "message":"<your-message-text>"}}' --from <your-secret-wallet-name> --amount <your-desired-donation-amount> -b block
+secretcli tx compute execute $address '{"send_donation":{"sender":"<your-username>", "recipient":"<recipient-username>", "message":"<your-message-text>"}}' --from <your-secret-wallet-name> --amount <your-desired-donation-amount> -b block
 ```
 ### Verify Send Success
 1. First, generate a document to sign which conforms to SNIP-24 standards

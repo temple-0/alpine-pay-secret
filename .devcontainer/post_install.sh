@@ -1,5 +1,5 @@
 apt update && apt upgrade -y && apt install -y dos2unix
-curl -fsSL https://github.com/scrtlabs/SecretNetwork/releases/download/v1.11.0/secretcli-Linux -o secretcli
+curl -fsSL https://github.com/scrtlabs/SecretNetwork/releases/download/v1.15.1/secretcli-Linux -o secretcli
 dos2unix secretcli*
 chmod +x secretcli
 mv secretcli /usr/local/bin/secretcli
